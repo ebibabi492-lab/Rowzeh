@@ -42,31 +42,78 @@ object RowzehScheduler {
 
         val nextTriggerMillis = calculateNextTriggerTime(schedule, intervals)
 
+        val showIntent = Intent(context, com.example.MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val pendingShow = PendingIntent.getActivity(
+            context,
+            ALARM_REQUEST_CODE + 1,
+            showIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val canScheduleExact = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            try {
+                alarmManager.canScheduleExactAlarms()
+            } catch (_: Exception) {
+                false
+            }
+        } else {
+            true
+        }
+
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                if (alarmManager.canScheduleExactAlarms()) {
-                    alarmManager.setExactAndAllowWhileIdle(
-                        AlarmManager.RTC_WAKEUP,
-                        nextTriggerMillis,
-                        pendingIntent
-                    )
+            if (canScheduleExact) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    val alarmClockInfo = AlarmManager.AlarmClockInfo(nextTriggerMillis, pendingShow)
+                    alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
                 } else {
+                    alarmManager.setExact(AlarmManager.RTC_WAKEUP, nextTriggerMillis, pendingIntent)
+                }
+                Log.d("RowzehScheduler", "Scheduled exact alarm clock for: $nextTriggerMillis")
+            } else {
+                // Inexact alarm allowed while idle when exact alarm permission is not granted
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                     alarmManager.setAndAllowWhileIdle(
                         AlarmManager.RTC_WAKEUP,
                         nextTriggerMillis,
                         pendingIntent
                     )
+                } else {
+                    alarmManager.set(AlarmManager.RTC_WAKEUP, nextTriggerMillis, pendingIntent)
                 }
-            } else {
-                alarmManager.setExactAndAllowWhileIdle(
-                    AlarmManager.RTC_WAKEUP,
-                    nextTriggerMillis,
-                    pendingIntent
-                )
+                Log.d("RowzehScheduler", "Scheduled alarm while idle (inexact) for: $nextTriggerMillis")
             }
-            Log.d("RowzehScheduler", "Scheduled alarm for: $nextTriggerMillis")
+        } catch (e: SecurityException) {
+            Log.w("RowzehScheduler", "SecurityException scheduling exact alarm, falling back to setAndAllowWhileIdle: ${e.message}")
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    alarmManager.setAndAllowWhileIdle(
+                        AlarmManager.RTC_WAKEUP,
+                        nextTriggerMillis,
+                        pendingIntent
+                    )
+                } else {
+                    alarmManager.set(AlarmManager.RTC_WAKEUP, nextTriggerMillis, pendingIntent)
+                }
+            } catch (fallbackEx: Exception) {
+                Log.e("RowzehScheduler", "Fallback alarm scheduling failed", fallbackEx)
+            }
         } catch (e: Exception) {
-            Log.e("RowzehScheduler", "Error scheduling alarm", e)
+            Log.e("RowzehScheduler", "Error setting alarm clock", e)
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    alarmManager.setAndAllowWhileIdle(
+                        AlarmManager.RTC_WAKEUP,
+                        nextTriggerMillis,
+                        pendingIntent
+                    )
+                } else {
+                    alarmManager.set(AlarmManager.RTC_WAKEUP, nextTriggerMillis, pendingIntent)
+                }
+            } catch (fallbackEx: Exception) {
+                Log.e("RowzehScheduler", "Fallback alarm scheduling failed", fallbackEx)
+            }
         }
 
         return nextTriggerMillis

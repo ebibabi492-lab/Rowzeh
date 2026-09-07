@@ -29,6 +29,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
@@ -101,6 +103,7 @@ import java.util.Locale
 fun RowzehSettingsScreen(
     viewModel: RowzehViewModel,
     onNavigateBack: () -> Unit,
+    onNavigateToGuide: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -154,6 +157,18 @@ fun RowzehSettingsScreen(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                 contentDescription = "بازگشت به صفحه اصلی",
                                 tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    },
+                    actions = {
+                        IconButton(
+                            onClick = onNavigateToGuide,
+                            modifier = Modifier.testTag("btn_settings_guide")
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.HelpOutline,
+                                contentDescription = "راهنمای نرم‌افزار و پوستر",
+                                tint = TurquoisePrimary
                             )
                         }
                     },
@@ -272,6 +287,69 @@ fun RowzehSettingsScreen(
                                     }
                                 }
                             }
+                        }
+                    }
+                }
+
+                // Guide & Poster Banner Card
+                item {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onNavigateToGuide() }
+                            .testTag("card_settings_guide_banner"),
+                        shape = RoundedCornerShape(18.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = TurquoiseContainer.copy(alpha = 0.5f)
+                        ),
+                        border = BorderStroke(1.dp, TurquoisePrimary.copy(alpha = 0.35f))
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = TurquoisePrimary.copy(alpha = 0.15f),
+                                    modifier = Modifier.size(42.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            imageVector = Icons.AutoMirrored.Filled.HelpOutline,
+                                            contentDescription = null,
+                                            tint = TurquoisePrimary,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                    }
+                                }
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
+                                    Text(
+                                        text = "راهنما و پوستر ساعت روضه",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 14.5.sp,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = "مشاهده پوستر تصویری و شرح ۹ قابلیت برنامه",
+                                        fontSize = 11.5.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                contentDescription = null,
+                                tint = TurquoisePrimary,
+                                modifier = Modifier.size(20.dp)
+                            )
                         }
                     }
                 }

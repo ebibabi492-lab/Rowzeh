@@ -11,20 +11,26 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface TrackDao {
-    @Query("SELECT * FROM rowzeh_tracks ORDER BY isBuiltIn DESC, createdAt DESC")
+    @Query("SELECT * FROM rowzeh_tracks WHERE isBuiltIn = 0 ORDER BY createdAt DESC")
     fun getAllTracks(): Flow<List<RowzehTrack>>
 
-    @Query("SELECT * FROM rowzeh_tracks WHERE isIncludedInRandom = 1")
+    @Query("SELECT * FROM rowzeh_tracks WHERE isBuiltIn = 0 AND isIncludedInRandom = 1")
     fun getIncludedTracks(): Flow<List<RowzehTrack>>
 
-    @Query("SELECT * FROM rowzeh_tracks WHERE isIncludedInRandom = 1")
+    @Query("SELECT * FROM rowzeh_tracks WHERE isBuiltIn = 0 AND isIncludedInRandom = 1")
     suspend fun getIncludedTracksSync(): List<RowzehTrack>
+
+    @Query("SELECT * FROM rowzeh_tracks WHERE isBuiltIn = 0")
+    suspend fun getAllUserTracksSync(): List<RowzehTrack>
 
     @Query("SELECT * FROM rowzeh_tracks WHERE id = :id LIMIT 1")
     suspend fun getTrackById(id: Long): RowzehTrack?
 
-    @Query("SELECT COUNT(*) FROM rowzeh_tracks")
+    @Query("SELECT COUNT(*) FROM rowzeh_tracks WHERE isBuiltIn = 0")
     suspend fun getTrackCount(): Int
+
+    @Query("DELETE FROM rowzeh_tracks WHERE isBuiltIn = 1")
+    suspend fun deleteBuiltInTracks()
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTrack(track: RowzehTrack): Long

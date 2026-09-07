@@ -1,7 +1,6 @@
 package com.example.data.repository
 
 import android.content.Context
-import com.example.audio.AudioSampleGenerator
 import com.example.data.local.ScheduleDao
 import com.example.data.local.TimeIntervalDao
 import com.example.data.local.TrackDao
@@ -11,23 +10,28 @@ import com.example.data.model.TimeInterval
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
+import java.io.File
 
 class RowzehRepository(
     private val trackDao: TrackDao,
     private val scheduleDao: ScheduleDao,
     private val timeIntervalDao: TimeIntervalDao
 ) {
+
     val allTracks: Flow<List<RowzehTrack>> = trackDao.getAllTracks()
     val includedTracks: Flow<List<RowzehTrack>> = trackDao.getIncludedTracks()
     val scheduleFlow: Flow<ScheduleConfig?> = scheduleDao.getScheduleFlow()
     val allIntervals: Flow<List<TimeInterval>> = timeIntervalDao.getAllIntervals()
 
     suspend fun initializeDefaultsIfEmpty(context: Context) = withContext(Dispatchers.IO) {
-        val count = trackDao.getTrackCount()
-        if (count == 0) {
-            val samples = AudioSampleGenerator.generateDefaultSamplesIfEmpty(context)
-            trackDao.insertTracks(samples)
-        }
+        // Permanently purge any default/built-in sample files and tracks as requested
+        try {
+            trackDao.deleteBuiltInTracks()
+            val samplesDir = File(context.filesDir, "samples")
+            if (samplesDir.exists()) {
+                samplesDir.deleteRecursively()
+            }
+        } catch (_: Exception) {}
 
         val schedule = scheduleDao.getScheduleSync()
         if (schedule == null) {
@@ -112,9 +116,12 @@ class RowzehRepository(
         if (tracks.isNotEmpty()) {
             tracks.random()
         } else {
-            // If none are checked, fallback to any available track
-            val any = trackDao.getTrackById(1)
-            any
+            val allUser = trackDao.getAllUserTracksSync()
+            if (allUser.isNotEmpty()) {
+                allUser.random()
+            } else {
+                null
+            }
         }
     }
 

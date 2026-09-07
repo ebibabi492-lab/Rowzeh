@@ -1,6 +1,8 @@
 package com.example.ui
 
 import android.app.Application
+import android.app.NotificationManager
+import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
@@ -12,6 +14,7 @@ import com.example.audio.AudioRecorderHelper
 import com.example.data.model.RowzehTrack
 import com.example.data.model.ScheduleConfig
 import com.example.data.model.TimeInterval
+import com.example.service.RowzehNotificationHelper
 import com.example.service.RowzehPlaybackService
 import com.example.service.RowzehScheduler
 import com.example.widget.RowzehAppWidgetProvider
@@ -67,9 +70,17 @@ class RowzehViewModel(application: Application) : AndroidViewModel(application) 
     private val _showRowzehAlert = MutableStateFlow<RowzehAlertData?>(null)
     val showRowzehAlert: StateFlow<RowzehAlertData?> = _showRowzehAlert.asStateFlow()
 
+    // Warning when quick test is pressed but no user tracks exist
+    private val _emptyListAlert = MutableStateFlow(false)
+    val emptyListAlert: StateFlow<Boolean> = _emptyListAlert.asStateFlow()
+
+    // Track deletion confirmation
+    private val _trackToDelete = MutableStateFlow<RowzehTrack?>(null)
+    val trackToDelete: StateFlow<RowzehTrack?> = _trackToDelete.asStateFlow()
+
     data class RowzehAlertData(
         val track: RowzehTrack,
-        val countdownSeconds: Int = 3
+        val countdownSeconds: Int = 0
     )
 
     private suspend fun rescheduleIfEnabled() {
@@ -190,13 +201,33 @@ class RowzehViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    fun deleteTrack(track: RowzehTrack) {
+    fun requestDeleteTrack(track: RowzehTrack) {
+        _trackToDelete.value = track
+    }
+
+    fun cancelDeleteTrack() {
+        _trackToDelete.value = null
+    }
+
+    fun confirmDeleteTrack() {
+        val track = _trackToDelete.value ?: return
+        _trackToDelete.value = null
         viewModelScope.launch {
             if (playingState.value?.filePath == track.filePath) {
                 stopPlayback()
             }
+            try {
+                val f = java.io.File(track.filePath)
+                if (f.exists()) {
+                    f.delete()
+                }
+            } catch (_: Exception) {}
             repository.deleteTrack(track)
         }
+    }
+
+    fun deleteTrack(track: RowzehTrack) {
+        requestDeleteTrack(track)
     }
 
     fun playTrack(track: RowzehTrack) {
@@ -222,9 +253,28 @@ class RowzehViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             val track = repository.getRandomIncludedTrack()
             if (track != null) {
-                _showRowzehAlert.value = RowzehAlertData(track = track, countdownSeconds = 3)
+                // Pre-alert dialog shown AND audio playback immediately begins!
+                _showRowzehAlert.value = RowzehAlertData(track = track, countdownSeconds = 0)
+                playTrack(track)
+
+                // Also post system alert notification
+                try {
+                    val app = getApplication<Application>()
+                    val notif = RowzehNotificationHelper.buildAlertNotification(
+                        app,
+                        track.title
+                    )
+                    val nm = app.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+                    nm?.notify(RowzehNotificationHelper.NOTIFICATION_ALERT_ID, notif)
+                } catch (_: Exception) {}
+            } else {
+                _emptyListAlert.value = true
             }
         }
+    }
+
+    fun dismissEmptyListAlert() {
+        _emptyListAlert.value = false
     }
 
     fun dismissRowzehAlert() {

@@ -24,20 +24,26 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.Alarm
+import androidx.compose.material.icons.filled.AudioFile
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.VolumeDown
 import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -168,6 +174,7 @@ fun TraditionalHeader(
     isEnabled: Boolean,
     onQuickTestClick: () -> Unit,
     onSettingsClick: (() -> Unit)? = null,
+    onGuideClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -246,6 +253,26 @@ fun TraditionalHeader(
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Medium
                         )
+                    }
+
+                    // Guide Button
+                    if (onGuideClick != null) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        IconButton(
+                            onClick = onGuideClick,
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(TurquoiseContainer)
+                                .testTag("btn_header_guide")
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.HelpOutline,
+                                contentDescription = "راهنمای نرم‌افزار",
+                                tint = TurquoisePrimary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                     }
 
                     if (onSettingsClick != null) {
@@ -719,7 +746,7 @@ fun TimeNumberSpinner(
 }
 
 /**
- * Individual Audio Track Item
+ * Individual Audio Track Item for User Recorded and Uploaded Files
  */
 @Composable
 fun AudioTrackCard(
@@ -736,110 +763,156 @@ fun AudioTrackCard(
             .testTag("audio_track_${track.id}"),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isPlayingThis) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
+            containerColor = if (isPlayingThis) TurquoisePrimary.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surface
         ),
         border = BorderStroke(
-            1.dp,
-            if (isPlayingThis) TurquoisePrimary else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+            width = if (isPlayingThis) 1.5.dp else 1.dp,
+            color = if (isPlayingThis) TurquoisePrimary else MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
         )
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(12.dp)
         ) {
-            // Checkbox for inclusion in random playback
-            Checkbox(
-                checked = track.isIncludedInRandom,
-                onCheckedChange = { onToggleInclusion() },
-                colors = CheckboxDefaults.colors(
-                    checkedColor = TurquoisePrimary,
-                    checkmarkColor = Color.White
-                ),
-                modifier = Modifier.testTag("checkbox_track_${track.id}")
-            )
-
-            // Play/Stop preview button
-            IconButton(
-                onClick = onPlayPreview,
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(if (isPlayingThis) TurquoisePrimary else MaterialTheme.colorScheme.surfaceVariant)
-                    .testTag("btn_play_track_${track.id}")
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = if (isPlayingThis) Icons.Default.Pause else Icons.Default.PlayArrow,
-                    contentDescription = if (isPlayingThis) "توقف" else "پخش",
-                    tint = if (isPlayingThis) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(22.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.width(10.dp))
-
-            // Track title & info
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = track.title,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = track.speaker,
-                        fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false)
-                    )
-                    Text(
-                        text = " • ${formatSeconds(track.durationSeconds)}",
-                        fontSize = 11.sp,
-                        color = GoldDark,
-                        fontWeight = FontWeight.Medium
+                // Play / Pause Button with equalizer feedback
+                IconButton(
+                    onClick = onPlayPreview,
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(if (isPlayingThis) TurquoisePrimary else MaterialTheme.colorScheme.surfaceVariant)
+                        .testTag("btn_play_track_${track.id}")
+                ) {
+                    Icon(
+                        imageVector = if (isPlayingThis) Icons.Default.Pause else Icons.Default.PlayArrow,
+                        contentDescription = if (isPlayingThis) "توقف پخش" else "پخش روضه",
+                        tint = if (isPlayingThis) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(24.dp)
                     )
                 }
-            }
 
-            // Track Type Badge (Built-in / Recorded / Uploaded)
-            val badgeText = when {
-                track.isBuiltIn -> "پیش‌فرض"
-                track.isRecorded -> "ضبطی"
-                else -> "فایل شخصی"
-            }
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                modifier = Modifier.padding(horizontal = 6.dp)
-            ) {
-                Text(
-                    text = badgeText,
-                    fontSize = 10.sp,
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+                Spacer(modifier = Modifier.width(10.dp))
 
-            // Delete button (allowed for user tracks)
-            if (!track.isBuiltIn) {
+                // Track Title and Speaker
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        // Track category icon
+                        Icon(
+                            imageVector = if (track.isRecorded) Icons.Default.Mic else Icons.Default.AudioFile,
+                            contentDescription = null,
+                            tint = if (track.isRecorded) AlertCrimson else TurquoisePrimary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = track.title,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(3.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = track.speaker,
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                        Text(
+                            text = " • ${toPersianDigits(formatSeconds(track.durationSeconds))}",
+                            fontSize = 11.sp,
+                            color = GoldDark,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(6.dp))
+
+                // Track Type Badge (ضبط‌شده / بارگذاری‌شده)
+                val badgeText = if (track.isRecorded) "صدای ضبط‌شده" else "فایل صوتی"
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (track.isRecorded) AlertCrimson.copy(alpha = 0.12f) else TurquoisePrimary.copy(alpha = 0.12f)
+                ) {
+                    Text(
+                        text = badgeText,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
+                        color = if (track.isRecorded) AlertCrimson else TurquoisePrimary
+                    )
+                }
+
+                // Delete Button
                 IconButton(
                     onClick = onDelete,
                     modifier = Modifier
-                        .size(32.dp)
+                        .size(36.dp)
                         .testTag("btn_delete_track_${track.id}")
                 ) {
                     Icon(
                         imageVector = Icons.Default.Delete,
-                        contentDescription = "حذف",
-                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
-                        modifier = Modifier.size(18.dp)
+                        contentDescription = "حذف روضه",
+                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.85f),
+                        modifier = Modifier.size(20.dp)
                     )
+                }
+            }
+
+            // Bottom row: Checkbox for inclusion in random playback
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 6.dp)
+                    .clickable { onToggleInclusion() },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Checkbox(
+                    checked = track.isIncludedInRandom,
+                    onCheckedChange = { onToggleInclusion() },
+                    colors = CheckboxDefaults.colors(
+                        checkedColor = TurquoisePrimary,
+                        checkmarkColor = Color.White
+                    ),
+                    modifier = Modifier
+                        .size(32.dp)
+                        .testTag("checkbox_track_${track.id}")
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = if (track.isIncludedInRandom) "در چرخه پخش تصادفی قرار دارد" else "از چرخه پخش تصادفی خارج شده",
+                    fontSize = 11.sp,
+                    color = if (track.isIncludedInRandom) TurquoisePrimary else MaterialTheme.colorScheme.outline
+                )
+
+                if (isPlayingThis) {
+                    Spacer(modifier = Modifier.weight(1f))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.GraphicEq,
+                            contentDescription = null,
+                            tint = TurquoisePrimary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "در حال پخش",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TurquoisePrimary
+                        )
+                    }
                 }
             }
         }
@@ -847,15 +920,145 @@ fun AudioTrackCard(
 }
 
 /**
+ * Confirmation dialog for deleting user tracks
+ */
+@Composable
+fun DeleteTrackConfirmDialog(
+    trackTitle: String,
+    onDismiss: () -> Unit,
+    onConfirmDelete: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = {
+            Icon(
+                imageVector = Icons.Default.Delete,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error,
+                modifier = Modifier.size(32.dp)
+            )
+        },
+        title = {
+            Text(
+                text = "حذف روضه",
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp,
+                textAlign = TextAlign.Center
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "آیا از حذف روضه زیر اطمینان دارید؟",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "«$trackTitle»",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp,
+                    color = MaterialTheme.colorScheme.error,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "این فایل صوتی به صورت دائمی از فهرست روضه‌ها پاک خواهد شد.",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.outline,
+                    textAlign = TextAlign.Center
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirmDelete,
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.testTag("btn_confirm_delete_track")
+            ) {
+                Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("حذف قطعی")
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier.testTag("btn_cancel_delete_track")
+            ) {
+                Text("انصراف")
+            }
+        },
+        shape = RoundedCornerShape(22.dp)
+    )
+}
+
+/**
+ * Alert shown when quick test is tapped but no user tracks exist
+ */
+@Composable
+fun EmptyListAlertDialog(
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = {
+            Icon(
+                imageVector = Icons.Default.Info,
+                contentDescription = null,
+                tint = AlertCrimson,
+                modifier = Modifier.size(32.dp)
+            )
+        },
+        title = {
+            Text(
+                text = "فهرست روضه‌ها خالی است",
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp,
+                textAlign = TextAlign.Center,
+                color = AlertCrimson
+            )
+        },
+        text = {
+            Text(
+                text = "فایل‌های پیش‌فرض طبق درخواست شما حذف شده‌اند. برای پخش روضه‌ها در ساعات معین، لطفاً با فشردن دکمه «ضبط صدای روضه» یا «بارگذاری فایل صوتی»، حداقل یک فایل اضافه نمایید.",
+                fontSize = 13.sp,
+                lineHeight = 22.sp,
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        },
+        confirmButton = {
+            Button(
+                onClick = onDismiss,
+                colors = ButtonDefaults.buttonColors(containerColor = TurquoisePrimary),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.testTag("btn_dismiss_empty_alert")
+            ) {
+                Text("متوجه شدم")
+            }
+        },
+        shape = RoundedCornerShape(22.dp)
+    )
+}
+
+/**
  * Pre-Alert Dialog ("زمان روضه")
- * Prominently warns the user before rowzeh playback starts!
+ * Prominently warns the user before and during rowzeh playback!
  */
 @Composable
 fun RowzehPreAlertDialog(
     trackTitle: String,
     countdownSec: Int,
+    isPlaying: Boolean = false,
     onDismiss: () -> Unit,
-    onConfirmPlay: () -> Unit
+    onConfirmPlay: () -> Unit,
+    onStopPlay: () -> Unit = onDismiss
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
     val scale by infiniteTransition.animateFloat(
@@ -912,33 +1115,76 @@ fun RowzehPreAlertDialog(
                     textAlign = TextAlign.Center,
                     color = TurquoisePrimary
                 )
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                    text = "برای شروع دلنشین زمزمه و ذکر اهل بیت (ع) آماده‌اید؟",
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
-                )
+                Spacer(modifier = Modifier.height(10.dp))
+                if (isPlaying) {
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = TurquoisePrimary.copy(alpha = 0.12f),
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.GraphicEq,
+                                contentDescription = null,
+                                tint = TurquoisePrimary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "هم‌اکنون در حال پخش فایل صوتی روضه...",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = TurquoisePrimary
+                            )
+                        }
+                    }
+                } else {
+                    Text(
+                        text = "برای شروع دلنشین زمزمه و ذکر اهل بیت (ع) آماده‌اید؟",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
         },
         confirmButton = {
             Button(
-                onClick = onConfirmPlay,
+                onClick = {
+                    if (isPlaying) {
+                        onDismiss()
+                    } else {
+                        onConfirmPlay()
+                    }
+                },
                 colors = ButtonDefaults.buttonColors(containerColor = TurquoisePrimary),
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.testTag("btn_confirm_rowzeh_alert")
             ) {
-                Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
+                Icon(
+                    imageVector = if (isPlaying) Icons.Default.Check else Icons.Default.PlayArrow,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
                 Spacer(modifier = Modifier.width(4.dp))
-                Text("پخش روضه")
+                Text(if (isPlaying) "قبول و ادامه پخش" else "پخش روضه")
             }
         },
         dismissButton = {
             TextButton(
-                onClick = onDismiss,
+                onClick = {
+                    if (isPlaying) {
+                        onStopPlay()
+                    } else {
+                        onDismiss()
+                    }
+                },
                 modifier = Modifier.testTag("btn_dismiss_rowzeh_alert")
             ) {
-                Text("انصراف")
+                Text(if (isPlaying) "توقف پخش" else "انصراف")
             }
         },
         shape = RoundedCornerShape(22.dp)

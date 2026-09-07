@@ -6,10 +6,12 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.media.AudioAttributes
+import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.media.MediaPlayer
 import android.os.Build
 import android.os.IBinder
+import android.os.PowerManager
 import android.util.Log
 import com.example.data.local.AppDatabase
 import com.example.data.repository.RowzehRepository
@@ -62,10 +64,14 @@ class RowzehPlaybackService : Service() {
                 putExtra(EXTRA_SPEAKER, speaker)
                 putExtra(EXTRA_VOLUME, volumePercent)
             }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    context.startForegroundService(intent)
+                } else {
+                    context.startService(intent)
+                }
+            } catch (e: Exception) {
+                Log.e("RowzehPlaybackService", "Error starting playback foreground service", e)
             }
         }
 
@@ -73,11 +79,16 @@ class RowzehPlaybackService : Service() {
             val intent = Intent(context, RowzehPlaybackService::class.java).apply {
                 action = ACTION_STOP
             }
-            context.startService(intent)
+            try {
+                context.startService(intent)
+            } catch (_: Exception) {}
         }
     }
 
     private var mediaPlayer: MediaPlayer? = null
+    private var wakeLock: PowerManager.WakeLock? = null
+    private var audioManager: AudioManager? = null
+    private var audioFocusRequest: AudioFocusRequest? = null
     private val serviceJob = Job()
     private val serviceScope = CoroutineScope(Dispatchers.Main + serviceJob)
     private lateinit var repository: RowzehRepository
@@ -92,9 +103,43 @@ class RowzehPlaybackService : Service() {
         val db = AppDatabase.getInstance(this)
         repository = RowzehRepository(db.trackDao(), db.scheduleDao(), db.timeIntervalDao())
         RowzehNotificationHelper.createNotificationChannels(this)
+        audioManager = getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+
+        try {
+            val pm = getSystemService(Context.POWER_SERVICE) as? PowerManager
+            wakeLock = pm?.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "RowzehApp:PlaybackLock")?.apply {
+                setReferenceCounted(false)
+            }
+        } catch (e: Exception) {
+            Log.w("RowzehPlaybackService", "Could not create WakeLock", e)
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        val candidateTitle = intent?.getStringExtra(EXTRA_TRACK_TITLE) ?: "پخش روضه"
+        val candidateSpeaker = intent?.getStringExtra(EXTRA_SPEAKER) ?: "آوای معنوی"
+
+        // Ensure startForeground is called immediately so OS never times out
+        val initialNotif = RowzehNotificationHelper.buildPlaybackNotification(
+            this,
+            candidateTitle,
+            candidateSpeaker,
+            isPlaying = true
+        )
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(
+                    RowzehNotificationHelper.NOTIFICATION_PLAYBACK_ID,
+                    initialNotif,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+                )
+            } else {
+                startForeground(RowzehNotificationHelper.NOTIFICATION_PLAYBACK_ID, initialNotif)
+            }
+        } catch (e: Exception) {
+            Log.e("RowzehPlaybackService", "startForeground failed", e)
+        }
+
         when (intent?.action) {
             ACTION_PLAY_TRACK -> {
                 val filePath = intent.getStringExtra(EXTRA_FILE_PATH) ?: ""
@@ -139,6 +184,45 @@ class RowzehPlaybackService : Service() {
         return START_NOT_STICKY
     }
 
+    private fun requestAudioFocus(): Boolean {
+        val am = audioManager ?: return true
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val req = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+                .setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .build()
+                )
+                .setOnAudioFocusChangeListener { focus ->
+                    if (focus == AudioManager.AUDIOFOCUS_LOSS) {
+                        stopPlaying()
+                        stopSelf()
+                    }
+                }
+                .build()
+            audioFocusRequest = req
+            am.requestAudioFocus(req) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+        } else {
+            @Suppress("DEPRECATION")
+            am.requestAudioFocus(
+                null,
+                AudioManager.STREAM_MUSIC,
+                AudioManager.AUDIOFOCUS_GAIN
+            ) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+        }
+    }
+
+    private fun abandonAudioFocus() {
+        val am = audioManager ?: return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            audioFocusRequest?.let { am.abandonAudioFocusRequest(it) }
+        } else {
+            @Suppress("DEPRECATION")
+            am.abandonAudioFocus(null)
+        }
+    }
+
     private fun playAudioFile(
         filePath: String,
         title: String,
@@ -153,28 +237,17 @@ class RowzehPlaybackService : Service() {
         currentVolumePercent = volumePercent
 
         val file = File(filePath)
-        if (!file.exists()) {
-            Log.e("RowzehPlaybackService", "File not found: $filePath")
+        if (!file.exists() || file.length() == 0L) {
+            Log.e("RowzehPlaybackService", "File not found or empty: $filePath")
             stopSelf()
             return
         }
 
-        // Show foreground notification
-        val notification = RowzehNotificationHelper.buildPlaybackNotification(
-            this,
-            title,
-            speaker,
-            isPlaying = true
-        )
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(
-                RowzehNotificationHelper.NOTIFICATION_PLAYBACK_ID,
-                notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
-            )
-        } else {
-            startForeground(RowzehNotificationHelper.NOTIFICATION_PLAYBACK_ID, notification)
-        }
+        try {
+            wakeLock?.acquire(15 * 60 * 1000L)
+        } catch (_: Exception) {}
+
+        requestAudioFocus()
 
         try {
             val player = MediaPlayer().apply {
@@ -198,6 +271,16 @@ class RowzehPlaybackService : Service() {
 
             updatePlayingState(true)
             RowzehAppWidgetProvider.updateAllWidgets(this)
+
+            // Update foreground notification with verified info
+            val notif = RowzehNotificationHelper.buildPlaybackNotification(
+                this,
+                title,
+                speaker,
+                isPlaying = true
+            )
+            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            nm.notify(RowzehNotificationHelper.NOTIFICATION_PLAYBACK_ID, notif)
 
             // Track last played
             serviceScope.launch {
@@ -250,6 +333,12 @@ class RowzehPlaybackService : Service() {
         } finally {
             mediaPlayer = null
             _currentPlayingTrack.value = null
+            abandonAudioFocus()
+            try {
+                if (wakeLock?.isHeld == true) {
+                    wakeLock?.release()
+                }
+            } catch (_: Exception) {}
             RowzehAppWidgetProvider.updateAllWidgets(this)
         }
     }

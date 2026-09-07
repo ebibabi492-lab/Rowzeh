@@ -45,17 +45,16 @@ class RowzehAlarmReceiver : BroadcastReceiver() {
                         // 1. Pick a random track from user's selected list
                         val track = repository.getRandomIncludedTrack()
 
-                        // 2. Post the pre-alert notification: "زمان روضه"
-                        val alertTitle = track?.title ?: "روضه و مرثیه شریفه"
-                        val notification = RowzehNotificationHelper.buildAlertNotification(
-                            context,
-                            alertTitle
-                        )
                         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-                        nm.notify(RowzehNotificationHelper.NOTIFICATION_ALERT_ID, notification)
-
-                        // 3. Play the audio file via Foreground Service
                         if (track != null) {
+                            // 2. Post the pre-alert notification: "زمان روضه"
+                            val notification = RowzehNotificationHelper.buildAlertNotification(
+                                context,
+                                track.title
+                            )
+                            nm.notify(RowzehNotificationHelper.NOTIFICATION_ALERT_ID, notification)
+
+                            // 3. Play the audio file via Foreground Service
                             RowzehPlaybackService.startPlayTrack(
                                 context = context,
                                 filePath = track.filePath,
@@ -63,6 +62,12 @@ class RowzehAlarmReceiver : BroadcastReceiver() {
                                 speaker = track.speaker,
                                 volumePercent = schedule.volumePercent
                             )
+                        } else {
+                            val notification = RowzehNotificationHelper.buildAlertNotification(
+                                context,
+                                "زمان روضه فرا رسید (فهرست روضه‌ها خالی است)"
+                            )
+                            nm.notify(RowzehNotificationHelper.NOTIFICATION_ALERT_ID, notification)
                         }
 
                         // 4. Schedule the next alarm within the repetition rules
