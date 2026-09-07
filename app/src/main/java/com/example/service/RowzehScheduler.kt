@@ -7,6 +7,7 @@ import android.content.Intent
 import android.os.Build
 import android.util.Log
 import com.example.data.model.ScheduleConfig
+import com.example.data.model.TimeInterval
 import java.util.Calendar
 import kotlin.random.Random
 
@@ -15,7 +16,11 @@ object RowzehScheduler {
     const val ACTION_ROWZEH_ALARM = "com.example.ACTION_ROWZEH_ALARM"
     private const val ALARM_REQUEST_CODE = 1001
 
-    fun scheduleNextAlarm(context: Context, schedule: ScheduleConfig): Long {
+    fun scheduleNextAlarm(
+        context: Context,
+        schedule: ScheduleConfig,
+        intervals: List<TimeInterval>? = null
+    ): Long {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
         val intent = Intent(context, RowzehAlarmReceiver::class.java).apply {
@@ -35,7 +40,7 @@ object RowzehScheduler {
             return 0L
         }
 
-        val nextTriggerMillis = calculateNextTriggerTime(schedule)
+        val nextTriggerMillis = calculateNextTriggerTime(schedule, intervals)
 
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -81,8 +86,19 @@ object RowzehScheduler {
         alarmManager.cancel(pendingIntent)
     }
 
-    fun calculateNextTriggerTime(schedule: ScheduleConfig): Long {
+    fun calculateNextTriggerTime(
+        schedule: ScheduleConfig,
+        customIntervals: List<TimeInterval>? = null
+    ): Long {
         val now = Calendar.getInstance()
+        val activeIntervals = customIntervals?.filter { it.isEnabled }
+
+        // If no custom intervals provided or none enabled, fallback to default window in ScheduleConfig
+        val intervalsToUse: List<Pair<Pair<Int, Int>, Pair<Int, Int>>> = if (!activeIntervals.isNullOrEmpty()) {
+            activeIntervals.map { (it.startHour to it.startMinute) to (it.endHour to it.endMinute) }
+        } else {
+            listOf((schedule.startHour to schedule.startMinute) to (schedule.endHour to schedule.endMinute))
+        }
 
         // Days offset search (up to 7 days ahead)
         for (dayOffset in 0..7) {
@@ -93,8 +109,6 @@ object RowzehScheduler {
 
             if (schedule.repeatMode == "WEEKLY") {
                 val dayOfWeek = candidateDay.get(Calendar.DAY_OF_WEEK)
-                // Calendar.SUNDAY = 1, MONDAY = 2 ... SATURDAY = 7
-                // Map to Persian week bit: Saturday (0), Sunday (1) .. Friday (6)
                 val bitIndex = when (dayOfWeek) {
                     Calendar.SATURDAY -> 0
                     Calendar.SUNDAY -> 1
@@ -111,46 +125,61 @@ object RowzehScheduler {
                 }
             }
 
-            // Window start and end for candidate day
-            val windowStart = (candidateDay.clone() as Calendar).apply {
-                set(Calendar.HOUR_OF_DAY, schedule.startHour)
-                set(Calendar.MINUTE, schedule.startMinute)
-                set(Calendar.SECOND, 0)
-                set(Calendar.MILLISECOND, 0)
-            }
+            var earliestCandidate: Long? = null
 
-            val windowEnd = (candidateDay.clone() as Calendar).apply {
-                set(Calendar.HOUR_OF_DAY, schedule.endHour)
-                set(Calendar.MINUTE, schedule.endMinute)
-                set(Calendar.SECOND, 0)
-                set(Calendar.MILLISECOND, 0)
-            }
+            for (interval in intervalsToUse) {
+                val startPair = interval.first
+                val endPair = interval.second
 
-            // If end is before start, window wraps to next morning
-            if (windowEnd.timeInMillis <= windowStart.timeInMillis) {
-                windowEnd.add(Calendar.DAY_OF_YEAR, 1)
-            }
+                val windowStart = (candidateDay.clone() as Calendar).apply {
+                    set(Calendar.HOUR_OF_DAY, startPair.first)
+                    set(Calendar.MINUTE, startPair.second)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }
 
-            val currentMillis = now.timeInMillis
-            if (dayOffset == 0) {
-                // Today
-                if (currentMillis < windowEnd.timeInMillis) {
-                    val effectiveStart = if (currentMillis > windowStart.timeInMillis) {
-                        currentMillis + 60_000L // 1 min from now
-                    } else {
-                        windowStart.timeInMillis
+                val windowEnd = (candidateDay.clone() as Calendar).apply {
+                    set(Calendar.HOUR_OF_DAY, endPair.first)
+                    set(Calendar.MINUTE, endPair.second)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }
+
+                if (windowEnd.timeInMillis <= windowStart.timeInMillis) {
+                    windowEnd.add(Calendar.DAY_OF_YEAR, 1)
+                }
+
+                val currentMillis = now.timeInMillis
+                if (dayOffset == 0) {
+                    // Today
+                    if (currentMillis < windowEnd.timeInMillis) {
+                        val effectiveStart = if (currentMillis > windowStart.timeInMillis) {
+                            currentMillis + 60_000L // 1 min from now
+                        } else {
+                            windowStart.timeInMillis
+                        }
+                        if (effectiveStart < windowEnd.timeInMillis) {
+                            val delta = windowEnd.timeInMillis - effectiveStart
+                            val randomOffset = if (delta > 0) Random.nextLong(delta) else 0L
+                            val candidate = effectiveStart + randomOffset
+                            if (earliestCandidate == null || candidate < earliestCandidate) {
+                                earliestCandidate = candidate
+                            }
+                        }
                     }
-                    if (effectiveStart < windowEnd.timeInMillis) {
-                        val delta = windowEnd.timeInMillis - effectiveStart
-                        val randomOffset = if (delta > 0) Random.nextLong(delta) else 0L
-                        return effectiveStart + randomOffset
+                } else {
+                    // Future day
+                    val delta = windowEnd.timeInMillis - windowStart.timeInMillis
+                    val randomOffset = if (delta > 0) Random.nextLong(delta) else 0L
+                    val candidate = windowStart.timeInMillis + randomOffset
+                    if (earliestCandidate == null || candidate < earliestCandidate) {
+                        earliestCandidate = candidate
                     }
                 }
-            } else {
-                // Future active day
-                val delta = windowEnd.timeInMillis - windowStart.timeInMillis
-                val randomOffset = if (delta > 0) Random.nextLong(delta) else 0L
-                return windowStart.timeInMillis + randomOffset
+            }
+
+            if (earliestCandidate != null) {
+                return earliestCandidate
             }
         }
 

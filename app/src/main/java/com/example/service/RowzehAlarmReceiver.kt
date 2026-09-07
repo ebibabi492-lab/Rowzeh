@@ -20,14 +20,15 @@ class RowzehAlarmReceiver : BroadcastReceiver() {
         Log.d("RowzehAlarmReceiver", "Received broadcast: $action")
 
         val db = AppDatabase.getInstance(context)
-        val repository = RowzehRepository(db.trackDao(), db.scheduleDao())
+        val repository = RowzehRepository(db.trackDao(), db.scheduleDao(), db.timeIntervalDao())
 
         if (action == Intent.ACTION_BOOT_COMPLETED) {
             // Re-schedule alarm on boot
             CoroutineScope(Dispatchers.IO).launch {
                 val schedule = repository.getScheduleSync()
+                val intervals = repository.getEnabledIntervalsSync()
                 if (schedule != null && schedule.isEnabled) {
-                    val nextTime = RowzehScheduler.scheduleNextAlarm(context, schedule)
+                    val nextTime = RowzehScheduler.scheduleNextAlarm(context, schedule, intervals)
                     repository.updateNextSchedule(nextTime)
                 }
             }
@@ -39,6 +40,7 @@ class RowzehAlarmReceiver : BroadcastReceiver() {
             CoroutineScope(Dispatchers.IO).launch {
                 try {
                     val schedule = repository.getScheduleSync()
+                    val intervals = repository.getEnabledIntervalsSync()
                     if (schedule != null && schedule.isEnabled) {
                         // 1. Pick a random track from user's selected list
                         val track = repository.getRandomIncludedTrack()
@@ -64,7 +66,7 @@ class RowzehAlarmReceiver : BroadcastReceiver() {
                         }
 
                         // 4. Schedule the next alarm within the repetition rules
-                        val nextMillis = RowzehScheduler.scheduleNextAlarm(context, schedule)
+                        val nextMillis = RowzehScheduler.scheduleNextAlarm(context, schedule, intervals)
                         repository.updateNextSchedule(nextMillis)
 
                         // 5. Update Home Screen Widget

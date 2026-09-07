@@ -11,6 +11,7 @@ import com.example.audio.AudioFileImporter
 import com.example.audio.AudioRecorderHelper
 import com.example.data.model.RowzehTrack
 import com.example.data.model.ScheduleConfig
+import com.example.data.model.TimeInterval
 import com.example.service.RowzehPlaybackService
 import com.example.service.RowzehScheduler
 import com.example.widget.RowzehAppWidgetProvider
@@ -40,6 +41,13 @@ class RowzehViewModel(application: Application) : AndroidViewModel(application) 
             initialValue = null
         )
 
+    val allIntervals: StateFlow<List<TimeInterval>> = repository.allIntervals
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
     val playingState = RowzehPlaybackService.currentPlayingTrack
 
     // Recording State
@@ -64,13 +72,28 @@ class RowzehViewModel(application: Application) : AndroidViewModel(application) 
         val countdownSeconds: Int = 3
     )
 
+    private suspend fun rescheduleIfEnabled() {
+        val current = repository.getScheduleSync()
+        if (current != null) {
+            if (current.isEnabled) {
+                val intervals = repository.getEnabledIntervalsSync()
+                val nextTime = RowzehScheduler.scheduleNextAlarm(getApplication(), current, intervals)
+                repository.updateNextSchedule(nextTime)
+            } else {
+                RowzehScheduler.cancelAlarm(getApplication())
+            }
+        }
+        RowzehAppWidgetProvider.updateAllWidgets(getApplication())
+    }
+
     fun toggleScheduleEnabled(enabled: Boolean) {
         viewModelScope.launch {
             repository.toggleScheduleEnabled(enabled)
             val current = repository.getScheduleSync()
             if (current != null) {
                 if (enabled) {
-                    val nextTime = RowzehScheduler.scheduleNextAlarm(getApplication(), current.copy(isEnabled = true))
+                    val intervals = repository.getEnabledIntervalsSync()
+                    val nextTime = RowzehScheduler.scheduleNextAlarm(getApplication(), current.copy(isEnabled = true), intervals)
                     repository.updateNextSchedule(nextTime)
                 } else {
                     RowzehScheduler.cancelAlarm(getApplication())
@@ -90,11 +113,7 @@ class RowzehViewModel(application: Application) : AndroidViewModel(application) 
                 endMinute = endM
             )
             repository.saveSchedule(updated)
-            if (updated.isEnabled) {
-                val nextTime = RowzehScheduler.scheduleNextAlarm(getApplication(), updated)
-                repository.updateNextSchedule(nextTime)
-            }
-            RowzehAppWidgetProvider.updateAllWidgets(getApplication())
+            rescheduleIfEnabled()
         }
     }
 
@@ -103,11 +122,7 @@ class RowzehViewModel(application: Application) : AndroidViewModel(application) 
             val current = repository.getScheduleSync() ?: ScheduleConfig()
             val updated = current.copy(repeatMode = mode)
             repository.saveSchedule(updated)
-            if (updated.isEnabled) {
-                val nextTime = RowzehScheduler.scheduleNextAlarm(getApplication(), updated)
-                repository.updateNextSchedule(nextTime)
-            }
-            RowzehAppWidgetProvider.updateAllWidgets(getApplication())
+            rescheduleIfEnabled()
         }
     }
 
@@ -117,11 +132,44 @@ class RowzehViewModel(application: Application) : AndroidViewModel(application) 
             val mask = current.weeklyDaysMask xor (1 shl dayIndex)
             val updated = current.copy(weeklyDaysMask = mask)
             repository.saveSchedule(updated)
-            if (updated.isEnabled) {
-                val nextTime = RowzehScheduler.scheduleNextAlarm(getApplication(), updated)
-                repository.updateNextSchedule(nextTime)
-            }
-            RowzehAppWidgetProvider.updateAllWidgets(getApplication())
+            rescheduleIfEnabled()
+        }
+    }
+
+    fun addInterval(title: String, startHour: Int, startMinute: Int, endHour: Int, endMinute: Int) {
+        viewModelScope.launch {
+            repository.insertInterval(
+                TimeInterval(
+                    title = title,
+                    startHour = startHour,
+                    startMinute = startMinute,
+                    endHour = endHour,
+                    endMinute = endMinute,
+                    isEnabled = true
+                )
+            )
+            rescheduleIfEnabled()
+        }
+    }
+
+    fun updateInterval(interval: TimeInterval) {
+        viewModelScope.launch {
+            repository.updateInterval(interval)
+            rescheduleIfEnabled()
+        }
+    }
+
+    fun deleteInterval(interval: TimeInterval) {
+        viewModelScope.launch {
+            repository.deleteInterval(interval)
+            rescheduleIfEnabled()
+        }
+    }
+
+    fun toggleIntervalEnabled(interval: TimeInterval) {
+        viewModelScope.launch {
+            repository.toggleIntervalEnabled(interval.id, !interval.isEnabled)
+            rescheduleIfEnabled()
         }
     }
 

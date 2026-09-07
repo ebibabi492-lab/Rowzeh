@@ -90,7 +90,7 @@ class RowzehPlaybackService : Service() {
     override fun onCreate() {
         super.onCreate()
         val db = AppDatabase.getInstance(this)
-        repository = RowzehRepository(db.trackDao(), db.scheduleDao())
+        repository = RowzehRepository(db.trackDao(), db.scheduleDao(), db.timeIntervalDao())
         RowzehNotificationHelper.createNotificationChannels(this)
     }
 

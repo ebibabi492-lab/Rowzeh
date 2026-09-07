@@ -33,7 +33,9 @@ import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.VolumeDown
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.AlertDialog
@@ -83,6 +85,7 @@ import com.example.ui.RowzehViewModel
 import com.example.ui.theme.AlertCrimson
 import com.example.ui.theme.GoldAccent
 import com.example.ui.theme.GoldDark
+import com.example.ui.theme.TurquoiseContainer
 import com.example.ui.theme.TurquoiseLight
 import com.example.ui.theme.TurquoisePrimary
 import kotlinx.coroutines.delay
@@ -164,6 +167,7 @@ fun ShamsehDivider(modifier: Modifier = Modifier) {
 fun TraditionalHeader(
     isEnabled: Boolean,
     onQuickTestClick: () -> Unit,
+    onSettingsClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -180,7 +184,7 @@ fun TraditionalHeader(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(18.dp),
+                .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Row(
@@ -188,55 +192,80 @@ fun TraditionalHeader(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
                     Image(
                         painter = painterResource(id = R.drawable.ic_rowzeh_art),
                         contentDescription = "آیکون ساعت روضه",
                         modifier = Modifier
-                            .size(48.dp)
+                            .size(46.dp)
                             .clip(RoundedCornerShape(14.dp))
                     )
-                    Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(modifier = Modifier.width(10.dp))
                     Column {
                         Text(
                             text = "ساعت روضه",
                             style = MaterialTheme.typography.titleLarge.copy(
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary,
-                                fontSize = 20.sp
+                                fontSize = 19.sp
                             )
                         )
                         Text(
                             text = if (isEnabled) "برنامه پخش تصادفی فعال است" else "برنامه غیرفعال است",
                             style = MaterialTheme.typography.bodySmall.copy(
-                                color = if (isEnabled) TurquoisePrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                color = if (isEnabled) TurquoisePrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 11.sp
                             )
                         )
                     }
                 }
 
-                // Quick Test Button
-                Button(
-                    onClick = onQuickTestClick,
-                    modifier = Modifier.testTag("btn_quick_test"),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = GoldDark,
-                        contentColor = Color.White
-                    ),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 6.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.NotificationsActive,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "تست هشدار",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium
-                    )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Quick Test Button
+                    Button(
+                        onClick = onQuickTestClick,
+                        modifier = Modifier.testTag("btn_quick_test"),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = GoldDark,
+                            contentColor = Color.White
+                        ),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.NotificationsActive,
+                            contentDescription = null,
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "تست هشدار",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+
+                    if (onSettingsClick != null) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        IconButton(
+                            onClick = onSettingsClick,
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(TurquoiseContainer)
+                                .testTag("btn_header_settings")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = "تنظیمات بازه‌های زمانی",
+                                tint = TurquoisePrimary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -261,6 +290,7 @@ fun ScheduleConfigCard(
     onUpdateRepeatMode: (String) -> Unit,
     onToggleWeeklyDay: (Int) -> Unit,
     onUpdateVolume: (Int) -> Unit,
+    onOpenSettings: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     var showTimePickerDialog by remember { mutableStateOf(false) }
@@ -508,6 +538,33 @@ fun ScheduleConfigCard(
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(20.dp)
                 )
+            }
+
+            if (onOpenSettings != null) {
+                Spacer(modifier = Modifier.height(14.dp))
+                OutlinedButton(
+                    onClick = onOpenSettings,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("btn_manage_intervals_page"),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = TurquoisePrimary
+                    ),
+                    border = BorderStroke(1.dp, TurquoisePrimary)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Tune,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "صفحه تنظیمات و بازه‌های زمانی دلخواه",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
         }
     }

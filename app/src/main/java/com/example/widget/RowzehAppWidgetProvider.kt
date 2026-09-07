@@ -46,7 +46,7 @@ class RowzehAppWidgetProvider : AppWidgetProvider() {
         appWidgetIds: IntArray
     ) {
         val db = AppDatabase.getInstance(context)
-        val repository = RowzehRepository(db.trackDao(), db.scheduleDao())
+        val repository = RowzehRepository(db.trackDao(), db.scheduleDao(), db.timeIntervalDao())
 
         CoroutineScope(Dispatchers.IO).launch {
             val schedule = repository.getScheduleSync()
@@ -161,7 +161,7 @@ class RowzehAppWidgetProvider : AppWidgetProvider() {
         super.onReceive(context, intent)
         val action = intent.action
         val db = AppDatabase.getInstance(context)
-        val repository = RowzehRepository(db.trackDao(), db.scheduleDao())
+        val repository = RowzehRepository(db.trackDao(), db.scheduleDao(), db.timeIntervalDao())
 
         when (action) {
             ACTION_TOGGLE_SCHEDULE -> {
@@ -171,7 +171,8 @@ class RowzehAppWidgetProvider : AppWidgetProvider() {
                         val newEnabled = !schedule.isEnabled
                         repository.toggleScheduleEnabled(newEnabled)
                         if (newEnabled) {
-                            val nextTime = RowzehScheduler.scheduleNextAlarm(context, schedule.copy(isEnabled = true))
+                            val intervals = repository.getEnabledIntervalsSync()
+                            val nextTime = RowzehScheduler.scheduleNextAlarm(context, schedule.copy(isEnabled = true), intervals)
                             repository.updateNextSchedule(nextTime)
                         } else {
                             RowzehScheduler.cancelAlarm(context)

@@ -6,11 +6,17 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.example.data.model.RowzehTrack
 import com.example.data.model.ScheduleConfig
+import com.example.data.model.TimeInterval
 
-@Database(entities = [RowzehTrack::class, ScheduleConfig::class], version = 1, exportSchema = false)
+@Database(
+    entities = [RowzehTrack::class, ScheduleConfig::class, TimeInterval::class],
+    version = 2,
+    exportSchema = false
+)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun trackDao(): TrackDao
     abstract fun scheduleDao(): ScheduleDao
+    abstract fun timeIntervalDao(): TimeIntervalDao
 
     companion object {
         @Volatile

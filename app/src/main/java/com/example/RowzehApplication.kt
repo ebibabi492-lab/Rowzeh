@@ -19,7 +19,7 @@ class RowzehApplication : Application() {
         super.onCreate()
 
         val db = AppDatabase.getInstance(this)
-        repository = RowzehRepository(db.trackDao(), db.scheduleDao())
+        repository = RowzehRepository(db.trackDao(), db.scheduleDao(), db.timeIntervalDao())
 
         // Create notification channels
         RowzehNotificationHelper.createNotificationChannels(this)

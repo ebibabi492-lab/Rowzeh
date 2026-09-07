@@ -78,6 +78,7 @@ import com.example.ui.theme.TurquoisePrimary
 @Composable
 fun RowzehMainScreen(
     viewModel: RowzehViewModel,
+    onNavigateToSettings: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -182,7 +183,8 @@ fun RowzehMainScreen(
                                 }
                             }
                             viewModel.triggerInstantRandomTest()
-                        }
+                        },
+                        onSettingsClick = onNavigateToSettings
                     )
                 }
 
@@ -204,7 +206,8 @@ fun RowzehMainScreen(
                         },
                         onUpdateRepeatMode = { viewModel.updateRepeatMode(it) },
                         onToggleWeeklyDay = { viewModel.toggleWeeklyDay(it) },
-                        onUpdateVolume = { viewModel.updateVolume(it) }
+                        onUpdateVolume = { viewModel.updateVolume(it) },
+                        onOpenSettings = onNavigateToSettings
                     )
                 }
 
