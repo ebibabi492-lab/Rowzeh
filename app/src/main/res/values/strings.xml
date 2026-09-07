@@ -1,0 +1,12 @@
+<resources>
+    <string name="app_name">ساعت روضه</string>
+    <string name="notification_channel_name">هشدارهای ساعت روضه</string>
+    <string name="notification_channel_desc">پخش و هشدارهای زمانبندی شده روضه</string>
+    <string name="alert_time_for_rowzeh">زمان روضه</string>
+    <string name="alert_time_for_rowzeh_desc">فایل صوتی روضه به زودی پخش می‌شود</string>
+    <string name="widget_title">ساعت روضه</string>
+    <string name="widget_status_active">برنامه فعال است</string>
+    <string name="widget_status_inactive">برنامه غیرفعال است</string>
+    <string name="widget_play_now">پخش اکنون</string>
+    <string name="widget_stop">توقف</string>
+</resources>

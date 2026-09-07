@@ -1,0 +1,6 @@
+{
+  "name": "ساعت روضه",
+  "description": "اپلیکیشن پخش تصادفی روضه در بازه زمانی مشخص با هشدار، تنظیم تکرار، ضبط و بارگذاری صوت و ویجت اختصاصی",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
