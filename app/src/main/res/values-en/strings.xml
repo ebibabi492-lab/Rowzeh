@@ -1,0 +1,12 @@
+<resources>
+    <string name="app_name">Rowzeh Clock</string>
+    <string name="notification_channel_name">Rowzeh Clock Alerts</string>
+    <string name="notification_channel_desc">Scheduled Rowzeh alerts and spiritual audio playback</string>
+    <string name="alert_time_for_rowzeh">Time for Rowzeh</string>
+    <string name="alert_time_for_rowzeh_desc">Spiritual audio track will play shortly</string>
+    <string name="widget_title">Rowzeh Clock</string>
+    <string name="widget_status_active">Program is Active</string>
+    <string name="widget_status_inactive">Program is Inactive</string>
+    <string name="widget_play_now">Play Now</string>
+    <string name="widget_stop">Stop</string>
+</resources>

@@ -1,0 +1,12 @@
+<resources>
+    <string name="app_name">ساعة الروضة</string>
+    <string name="notification_channel_name">تنبيهات ساعة الروضة</string>
+    <string name="notification_channel_desc">بث وتنبيهات الروضة المجدولة</string>
+    <string name="alert_time_for_rowzeh">حان وقت الروضة</string>
+    <string name="alert_time_for_rowzeh_desc">سيتم تشغيل التسجيل الصوتي للروضة قريباً</string>
+    <string name="widget_title">ساعة الروضة</string>
+    <string name="widget_status_active">البرنامج مفعّل</string>
+    <string name="widget_status_inactive">البرنامج معطّل</string>
+    <string name="widget_play_now">تشغيل الآن</string>
+    <string name="widget_stop">إيقاف</string>
+</resources>

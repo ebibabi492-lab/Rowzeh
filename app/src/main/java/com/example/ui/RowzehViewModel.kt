@@ -78,6 +78,18 @@ class RowzehViewModel(application: Application) : AndroidViewModel(application) 
     private val _trackToDelete = MutableStateFlow<RowzehTrack?>(null)
     val trackToDelete: StateFlow<RowzehTrack?> = _trackToDelete.asStateFlow()
 
+    // App Language state
+    private val prefs = application.getSharedPreferences("rowzeh_prefs", Context.MODE_PRIVATE)
+    private val _currentLanguage = MutableStateFlow(
+        com.example.util.AppLanguage.fromCode(prefs.getString("app_language", com.example.util.AppLanguage.PERSIAN.code))
+    )
+    val currentLanguage: StateFlow<com.example.util.AppLanguage> = _currentLanguage.asStateFlow()
+
+    fun setLanguage(language: com.example.util.AppLanguage) {
+        _currentLanguage.value = language
+        prefs.edit().putString("app_language", language.code).apply()
+    }
+
     data class RowzehAlertData(
         val track: RowzehTrack,
         val countdownSeconds: Int = 0
